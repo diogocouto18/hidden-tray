@@ -24,17 +24,18 @@ export class TrayTracker {
         this._procs = new Map(); // busName -> {pid, exe} once resolved, null while pending
         this._readyHandlers = new Map(); // indicator -> handler id
         this._cancellable = new Gio.Cancellable();
-        this._boxHandlers = [];
         this._knownTimer = 0;
         this._stopped = false;
     }
 
+    // connectObject/disconnectObject (GNOME Shell's signal tracker) drop the
+    // handlers automatically when the panel or a container is destroyed, e.g.
+    // during logout, so we never disconnect an already-removed handler.
     start() {
-        const box = Main.panel._rightBox;
-        this._boxHandlers = [
-            box.connect('child-added', () => this._rescan()),
-            box.connect('child-removed', () => this._rescan()),
-        ];
+        Main.panel._rightBox.connectObject(
+            'child-added', () => this._rescan(),
+            'child-removed', () => this._rescan(),
+            this);
         this._rescan();
     }
 
@@ -57,8 +58,12 @@ export class TrayTracker {
             const show = key === null || isShown(zoneFor(key, zones, newItemZone), state);
             if (!show) {
                 container.hide();
-                this._hidden.add(container);
+                if (!this._hidden.has(container)) {
+                    this._hidden.add(container);
+                    container.connectObject('destroy', () => this._hidden.delete(container), this);
+                }
             } else if (this._hidden.has(container)) {
+                container.disconnectObject(this);
                 container.show();
                 this._hidden.delete(container);
             }
@@ -68,10 +73,7 @@ export class TrayTracker {
     stop() {
         this._stopped = true;
         this._cancellable.cancel();
-        const box = Main.panel._rightBox;
-        for (const id of this._boxHandlers)
-            box.disconnect(id);
-        this._boxHandlers = [];
+        Main.panel._rightBox.disconnectObject(this);
         for (const [indicator, id] of this._readyHandlers) {
             try {
                 indicator.disconnect(id);
@@ -84,8 +86,11 @@ export class TrayTracker {
             GLib.source_remove(this._knownTimer);
             this._knownTimer = 0;
         }
-        for (const container of this._hidden)
+        // Destroyed containers already left _hidden through their 'destroy' handler.
+        for (const container of this._hidden) {
+            container.disconnectObject(this);
             container.show();
+        }
         this._hidden.clear();
         this._items = [];
     }
@@ -127,8 +132,10 @@ export class TrayTracker {
         // Forget containers that left the panel (they may be destroyed).
         const live = new Set(this._items.map(i => i.container));
         for (const container of this._hidden) {
-            if (!live.has(container))
+            if (!live.has(container)) {
+                container.disconnectObject(this);
                 this._hidden.delete(container);
+            }
         }
 
         this._scheduleKnownWrite();
