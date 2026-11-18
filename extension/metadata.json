@@ -1,0 +1,9 @@
+{
+  "uuid": "hidden-tray@diogocouto18.github.io",
+  "name": "Hidden Tray",
+  "description": "Hidden Bar for GNOME: collapse chosen tray icons behind an arrow in the top bar. Left click collapses/expands, middle click reveals always-hidden icons, right click picks each icon's zone.",
+  "shell-version": ["50"],
+  "url": "https://github.com/diogocouto18/hidden-tray",
+  "settings-schema": "org.gnome.shell.extensions.hidden-tray",
+  "version": 1
+}
