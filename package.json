@@ -1,0 +1,17 @@
+{
+  "name": "hidden-tray",
+  "version": "0.1.0",
+  "description": "Hidden Bar for GNOME: collapse chosen tray icons behind an arrow in the top bar.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test tests/",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "eslint": "^9.39.0",
+    "globals": "^16.5.0"
+  }
+}
