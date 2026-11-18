@@ -9,6 +9,7 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 import {AUTO_COLLAPSE_CHOICES} from './lib/core/autoCollapse.js';
 import {uniqueLabels} from './lib/core/identity.js';
 import {forgetItem, parseKnown, serializeKnown} from './lib/core/knownItems.js';
+import {isAcceptableShortcut} from './lib/core/shortcuts.js';
 import {Zone, isValidZone, zoneFor} from './lib/core/zones.js';
 
 const ZONES = [Zone.VISIBLE, Zone.COLLAPSIBLE, Zone.ALWAYS_HIDDEN];
@@ -163,7 +164,7 @@ function captureShortcut(parent, title, onDone) {
         resizable: false,
     });
     dialog.set_child(new Gtk.Label({
-        label: 'Press the new shortcut…\nEsc to cancel · Backspace to disable',
+        label: 'Press the new shortcut (use Ctrl, Alt or Super)…\nEsc to cancel · Backspace to disable',
         justify: Gtk.Justification.CENTER,
         margin_top: 24, margin_bottom: 24, margin_start: 24, margin_end: 24,
     }));
@@ -181,7 +182,12 @@ function captureShortcut(parent, title, onDone) {
             dialog.close();
             return Gdk.EVENT_STOP;
         }
-        if (mods !== 0 && Gtk.accelerator_valid(lower, mods)) {
+        const acceptable = isAcceptableShortcut({
+            control: (mods & Gdk.ModifierType.CONTROL_MASK) !== 0,
+            alt: (mods & Gdk.ModifierType.ALT_MASK) !== 0,
+            super: (mods & Gdk.ModifierType.SUPER_MASK) !== 0,
+        });
+        if (acceptable && Gtk.accelerator_valid(lower, mods)) {
             onDone(Gtk.accelerator_name(lower, mods));
             dialog.close();
         }
