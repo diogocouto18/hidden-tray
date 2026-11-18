@@ -1,0 +1,40 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+      - name: Check tag matches metadata version-name
+        run: |
+          expected="v$(python3 -c 'import json; print(json.load(open("extension/metadata.json"))["version-name"])')"
+          if [ "$GITHUB_REF_NAME" != "$expected" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match metadata version-name ($expected)" >&2
+            exit 1
+          fi
+
+      - name: Build extension zip
+        id: pack
+        run: echo "zip=$(./scripts/pack.sh)" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.zip }}" \
+            --title "Hidden Tray $GITHUB_REF_NAME" \
+            --generate-notes

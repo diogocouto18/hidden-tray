@@ -34,6 +34,12 @@ GNOME is the only major Linux desktop without this built in (KDE and XFCE have i
 
 ## Install
 
+From a release (recommended): download `hidden-tray@diogocouto18.github.io.shell-extension.zip` from the [latest release](https://github.com/diogocouto18/hidden-tray/releases/latest), then:
+
+```bash
+gnome-extensions install --force hidden-tray@diogocouto18.github.io.shell-extension.zip
+```
+
 From source:
 
 ```bash
@@ -42,7 +48,7 @@ cd hidden-tray
 make install
 ```
 
-Then log out and back in (Wayland loads new extensions at login) and enable it:
+Either way, log out and back in (Wayland loads new extensions at login) and enable it:
 
 ```bash
 gnome-extensions enable hidden-tray@diogocouto18.github.io
@@ -72,6 +78,8 @@ make test      # unit tests for the pure logic (node --test)
 make lint      # ESLint
 make install   # build the zip and install it for your user
 ```
+
+Releases: bump `version-name` in `extension/metadata.json`, merge, then push a matching tag (`git tag v1.0.1 && git push origin v1.0.1`). The release workflow runs lint and tests, checks the tag against `version-name`, builds the zip with `scripts/pack.sh` and attaches it to a GitHub release.
 
 Shell code can't be unit-tested outside GNOME Shell; `docs/manual-test-checklist.md` lists the manual checks.
 
