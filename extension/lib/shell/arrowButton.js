@@ -7,27 +7,39 @@ import Clutter from 'gi://Clutter';
 import GObject from 'gi://GObject';
 import St from 'gi://St';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
+import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
 export const ArrowButton = GObject.registerClass(
 class HiddenTrayArrowButton extends PanelMenu.Button {
     _init({onPrimary, onMiddle, onSecondary}) {
+        // dontCreateMenu=true disables PanelMenu.Button's own primary-click gesture;
+        // we attach a real menu (opened on right click only) before the button is
+        // added to the panel, so the panel's menu manager registers it.
         super._init(0.0, 'Hidden Tray', true);
+        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.TOP));
+        // setMenu() re-enables PanelMenu.Button's internal click gesture, which
+        // recognizes on press, toggles the (still empty) menu and cancels our
+        // gesture — every click looked dead. Disable it again, as the
+        // AppIndicator extension does for its own panel buttons.
+        this._clickGesture?.set_enabled(false);
 
         this._icon = new St.Icon({style_class: 'system-status-icon'});
         this.add_child(this._icon);
 
-        const handlers = [
+        // One ClickGesture for any button, dispatched on get_button(), as GNOME
+        // Shell 50 itself does (e.g. ibusCandidatePopup). Three gestures with
+        // different required_button on the same actor blocked every click.
+        const handlers = new Map([
             [Clutter.BUTTON_PRIMARY, onPrimary],
             [Clutter.BUTTON_MIDDLE, onMiddle],
-            [Clutter.BUTTON_SECONDARY, onSecondary],
-        ];
-        for (const [button, handler] of handlers) {
-            if (!handler)
-                continue;
-            const gesture = new Clutter.ClickGesture({required_button: button});
-            gesture.connect('recognize', () => handler());
-            this.add_action(gesture);
-        }
+            [Clutter.BUTTON_SECONDARY, onSecondary ? () => {
+                onSecondary(this.menu);
+                this.menu.toggle();
+            } : null],
+        ]);
+        const gesture = new Clutter.ClickGesture();
+        gesture.connect('recognize', g => handlers.get(g.get_button())?.());
+        this.add_action(gesture);
 
         this.setState({expanded: false, dimmed: false});
     }

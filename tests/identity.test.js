@@ -1,6 +1,20 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {baseKey, resolveKeys, displayName} from '../extension/lib/core/identity.js';
+import {baseKey, resolveKeys, displayName, uniqueLabels} from '../extension/lib/core/identity.js';
+
+test('uniqueLabels adds the key detail only to duplicated names', () => {
+    const labels = uniqueLabels([
+        {key: 'sni:NetBird', name: 'NetBird'},
+        {key: 'sni:livepatch', name: 'update-notifier'},
+        {key: 'sni:unattended-upgrade', name: 'update-notifier'},
+        {key: 'sni:X#slack', name: 'X'},
+        {key: 'sni:X#easyeffects', name: 'X'},
+    ]);
+    assert.equal(labels.get('sni:NetBird'), 'NetBird');
+    assert.equal(labels.get('sni:livepatch'), 'update-notifier (livepatch)');
+    assert.equal(labels.get('sni:unattended-upgrade'), 'update-notifier (unattended-upgrade)');
+    assert.equal(labels.get('sni:X#slack'), 'X (X#slack)');
+});
 
 test('baseKey builds sni/xembed keys and returns null without an identifier', () => {
     assert.equal(baseKey({kind: 'sni', id: 'NetBird'}), 'sni:NetBird');
