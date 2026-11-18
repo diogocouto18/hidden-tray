@@ -6,6 +6,7 @@
 // actor's own visibility (passive/ready), so the two never fight.
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
+import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 import {resolveKeys, displayName} from '../core/identity.js';
@@ -25,6 +26,7 @@ export class TrayTracker {
         this._readyHandlers = new Map(); // indicator -> handler id
         this._cancellable = new Gio.Cancellable();
         this._knownTimer = 0;
+        this._rescanLater = 0;
         this._stopped = false;
     }
 
@@ -33,10 +35,25 @@ export class TrayTracker {
     // during logout, so we never disconnect an already-removed handler.
     start() {
         Main.panel._rightBox.connectObject(
-            'child-added', () => this._rescan(),
-            'child-removed', () => this._rescan(),
+            'child-added', () => this._queueRescan(),
+            'child-removed', () => this._queueRescan(),
             this);
         this._rescan();
+    }
+
+    // Coalesce rescans and run them before the next redraw. When a tray app
+    // quits, its container is destroyed (child-removed) before the panel deletes
+    // its statusArea entry; rescanning right away would keep the dying container.
+    // Before-redraw still re-hides containers that another extension re-inserted
+    // before they are painted.
+    _queueRescan() {
+        if (this._stopped || this._rescanLater)
+            return;
+        this._rescanLater = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
+            this._rescanLater = 0;
+            this._rescan();
+            return GLib.SOURCE_REMOVE;
+        });
     }
 
     items() {
@@ -73,6 +90,10 @@ export class TrayTracker {
     stop() {
         this._stopped = true;
         this._cancellable.cancel();
+        if (this._rescanLater) {
+            global.compositor.get_laters().remove(this._rescanLater);
+            this._rescanLater = 0;
+        }
         Main.panel._rightBox.disconnectObject(this);
         for (const [indicator, id] of this._readyHandlers) {
             try {
@@ -104,7 +125,8 @@ export class TrayTracker {
             return;
         const raw = [];
         for (const [role, statusIcon] of Object.entries(Main.panel.statusArea)) {
-            if (!role.startsWith(ROLE_PREFIX) || !statusIcon?.container)
+            // Skip containers already detached from the panel (being destroyed).
+            if (!role.startsWith(ROLE_PREFIX) || !statusIcon?.container?.get_parent())
                 continue;
             const indicator = statusIcon._indicator;
             if (indicator) {
@@ -148,7 +170,7 @@ export class TrayTracker {
         const id = indicator.connect('ready', () => {
             indicator.disconnect(id);
             this._readyHandlers.delete(indicator);
-            this._rescan();
+            this._queueRescan();
         });
         this._readyHandlers.set(indicator, id);
     }
@@ -181,7 +203,7 @@ export class TrayTracker {
                         return;
                 }
                 this._procs.set(busName, proc);
-                this._rescan();
+                this._queueRescan();
             });
         return undefined;
     }

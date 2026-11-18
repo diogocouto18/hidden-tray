@@ -10,7 +10,7 @@ export default [
             ecmaVersion: 2022,
             sourceType: 'module',
             // GJS runtime globals available inside GNOME Shell and prefs.
-            globals: {console: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly', globalThis: 'readonly'},
+            globals: {console: 'readonly', TextDecoder: 'readonly', TextEncoder: 'readonly', globalThis: 'readonly', global: 'readonly'},
         },
     },
     {
