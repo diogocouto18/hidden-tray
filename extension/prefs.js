@@ -28,16 +28,27 @@ export default class HiddenTrayPrefs extends ExtensionPreferences {
             description: 'Choose where each tray icon lives. Collapsible icons hide behind the arrow; always-hidden ones show only on middle click or the reveal shortcut.',
         });
         page.add(icons);
-        let iconRows = [];
+        const handlers = [];
+        const state = {rows: [], signature: null, selfWrite: false};
+        // Rebuild only when what the rows show changes (the extension rewrites
+        // known-items with fresh timestamps on every scan), and never for a zone
+        // change made from one of these rows (it already shows it).
         const rebuildIcons = () => {
-            for (const row of iconRows)
+            const signature = iconsSignature(settings);
+            if (signature === state.signature)
+                return;
+            state.signature = signature;
+            if (state.selfWrite)
+                return;
+            for (const row of state.rows)
                 icons.remove(row);
-            iconRows = buildIconRows(settings);
-            for (const row of iconRows)
+            state.rows = buildIconRows(settings, state);
+            for (const row of state.rows)
                 icons.add(row);
         };
         rebuildIcons();
-        const knownId = settings.connect('changed::known-items', rebuildIcons);
+        for (const key of ['known-items', 'zones', 'new-item-zone'])
+            handlers.push(settings.connect(`changed::${key}`, rebuildIcons));
 
         const behaviour = new Adw.PreferencesGroup({title: 'Behaviour'});
         page.add(behaviour);
@@ -48,14 +59,27 @@ export default class HiddenTrayPrefs extends ExtensionPreferences {
 
         const shortcuts = new Adw.PreferencesGroup({title: 'Shortcuts'});
         page.add(shortcuts);
-        shortcuts.add(shortcutRow(window, settings, 'toggle-shortcut', 'Collapse / expand'));
-        shortcuts.add(shortcutRow(window, settings, 'reveal-shortcut', 'Reveal always-hidden'));
+        shortcuts.add(shortcutRow(window, settings, handlers, 'toggle-shortcut', 'Collapse / expand'));
+        shortcuts.add(shortcutRow(window, settings, handlers, 'reveal-shortcut', 'Reveal always-hidden'));
 
         window.connect('close-request', () => {
-            settings.disconnect(knownId);
+            for (const id of handlers)
+                settings.disconnect(id);
             return false;
         });
     }
+}
+
+function iconsSignature(settings) {
+    const known = parseKnown(settings.get_string('known-items'))
+        .map(i => [i.key, i.name, isRunning(i)]);
+    return JSON.stringify([known, getZones(settings), settings.get_string('new-item-zone')]);
+}
+
+// Items written by 1.0.0 have no `running` flag; treat them as not running
+// until the extension rewrites the list.
+function isRunning(item) {
+    return item.running === true;
 }
 
 function getZones(settings) {
@@ -66,9 +90,8 @@ function setZones(settings, zones) {
     settings.set_value('zones', new GLib.Variant('a{ss}', zones));
 }
 
-function buildIconRows(settings) {
-    const known = parseKnown(settings.get_string('known-items'))
-        .filter(item => item && typeof item.key === 'string' && typeof item.name === 'string');
+function buildIconRows(settings, state) {
+    const known = parseKnown(settings.get_string('known-items'));
     if (known.length === 0) {
         return [new Adw.ActionRow({
             title: 'No tray icons seen yet',
@@ -76,16 +99,21 @@ function buildIconRows(settings) {
         })];
     }
 
-    // The newest scan stamps live items with the same, latest time.
-    const latest = known.reduce((max, item) => (item.lastSeen > max ? item.lastSeen : max), '');
     const labels = uniqueLabels(known);
     const newItemZone = settings.get_string('new-item-zone');
 
     return known.map(item => {
-        const running = item.lastSeen === latest;
+        const running = isRunning(item);
         const row = zoneComboRow(labels.get(item.key), running ? '' : 'Not running',
             zoneFor(item.key, getZones(settings), newItemZone),
-            zone => setZones(settings, {...getZones(settings), [item.key]: zone}));
+            zone => {
+                state.selfWrite = true;
+                try {
+                    setZones(settings, {...getZones(settings), [item.key]: zone});
+                } finally {
+                    state.selfWrite = false;
+                }
+            });
         if (!running) {
             const forget = new Gtk.Button({
                 icon_name: 'user-trash-symbolic',
@@ -131,7 +159,7 @@ function autoCollapseRow(settings) {
     return row;
 }
 
-function shortcutRow(window, settings, key, title) {
+function shortcutRow(window, settings, handlers, key, title) {
     const row = new Adw.ActionRow({title});
     const label = new Gtk.ShortcutLabel({
         disabled_text: 'Disabled',
@@ -141,7 +169,7 @@ function shortcutRow(window, settings, key, title) {
         label.accelerator = settings.get_strv(key)[0] ?? '';
     };
     sync();
-    settings.connect(`changed::${key}`, sync);
+    handlers.push(settings.connect(`changed::${key}`, sync));
 
     const change = new Gtk.Button({label: 'Change…', valign: Gtk.Align.CENTER});
     change.connect('clicked', () => captureShortcut(window, title, accel =>

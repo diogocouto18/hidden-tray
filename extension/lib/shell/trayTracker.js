@@ -14,6 +14,10 @@ import {Zone, isShown, zoneFor} from '../core/zones.js';
 import {mergeKnownItems, parseKnown, serializeKnown} from '../core/knownItems.js';
 
 const ROLE_PREFIX = 'appindicator-';
+
+function panelBoxes() {
+    return [Main.panel._leftBox, Main.panel._centerBox, Main.panel._rightBox];
+}
 const KNOWN_WRITE_DELAY_S = 2;
 
 export class TrayTracker {
@@ -33,11 +37,15 @@ export class TrayTracker {
     // connectObject/disconnectObject (GNOME Shell's signal tracker) drop the
     // handlers automatically when the panel or a container is destroyed, e.g.
     // during logout, so we never disconnect an already-removed handler.
+    // All three panel boxes are watched: the AppIndicator extension can put tray
+    // icons on the left, center or right ('tray-pos').
     start() {
-        Main.panel._rightBox.connectObject(
-            'child-added', () => this._queueRescan(),
-            'child-removed', () => this._queueRescan(),
-            this);
+        for (const box of panelBoxes()) {
+            box.connectObject(
+                'child-added', () => this._queueRescan(),
+                'child-removed', () => this._queueRescan(),
+                this);
+        }
         this._rescan();
     }
 
@@ -70,10 +78,13 @@ export class TrayTracker {
     apply(state) {
         const zones = this._zones();
         const newItemZone = this._settings.get_string('new-item-zone');
-        for (const {key, container} of this._items) {
+        for (const {key, container, menu} of this._items) {
             // An icon we can't identify yet is never hidden.
             const show = key === null || isShown(zoneFor(key, zones, newItemZone), state);
             if (!show) {
+                // Don't leave the icon's menu open on a hidden icon.
+                if (menu?.isOpen)
+                    menu.close();
                 container.hide();
                 if (!this._hidden.has(container)) {
                     this._hidden.add(container);
@@ -94,12 +105,15 @@ export class TrayTracker {
             global.compositor.get_laters().remove(this._rescanLater);
             this._rescanLater = 0;
         }
-        Main.panel._rightBox.disconnectObject(this);
-        for (const [indicator, id] of this._readyHandlers) {
-            try {
-                indicator.disconnect(id);
-            } catch {
-                // The indicator may already be gone.
+        for (const box of panelBoxes())
+            box.disconnectObject(this);
+        for (const [indicator, ids] of this._readyHandlers) {
+            for (const id of ids) {
+                try {
+                    indicator.disconnect(id);
+                } catch {
+                    // The indicator may already be gone.
+                }
             }
         }
         this._readyHandlers.clear();
@@ -136,12 +150,13 @@ export class TrayTracker {
                 raw.push({
                     uid: role, kind: 'sni', id: indicator.id, title: indicator.title,
                     pid: proc?.pid, exe: proc?.exe, container: statusIcon.container,
+                    menu: statusIcon.menu,
                 });
             } else {
                 const icon = statusIcon._icon;
                 raw.push({
                     uid: role, kind: 'xembed', wmClass: icon?.wm_class, pid: icon?.pid,
-                    container: statusIcon.container,
+                    container: statusIcon.container, menu: statusIcon.menu,
                 });
             }
         }
@@ -149,6 +164,7 @@ export class TrayTracker {
         const keys = resolveKeys(raw);
         this._items = raw.map(r => ({
             role: r.uid, key: keys.get(r.uid), name: displayName(r), container: r.container,
+            menu: r.menu,
         }));
 
         // Forget containers that left the panel (they may be destroyed).
@@ -164,15 +180,22 @@ export class TrayTracker {
         this._onChanged();
     }
 
+    // Rescan once the indicator knows its Id. If it is destroyed first, just drop
+    // the handlers (AppIndicator emits 'destroy' before disconnecting everything).
     _waitForReady(indicator) {
         if (this._readyHandlers.has(indicator))
             return;
-        const id = indicator.connect('ready', () => {
-            indicator.disconnect(id);
+        const forget = () => {
+            for (const id of this._readyHandlers.get(indicator) ?? [])
+                indicator.disconnect(id);
             this._readyHandlers.delete(indicator);
+        };
+        const readyId = indicator.connect('ready', () => {
+            forget();
             this._queueRescan();
         });
-        this._readyHandlers.set(indicator, id);
+        const destroyId = indicator.connect('destroy', forget);
+        this._readyHandlers.set(indicator, [readyId, destroyId]);
     }
 
     // Owning process of a D-Bus name, resolved asynchronously and cached.

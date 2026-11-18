@@ -5,6 +5,6 @@
   "shell-version": ["50"],
   "url": "https://github.com/diogocouto18/hidden-tray",
   "settings-schema": "org.gnome.shell.extensions.hidden-tray",
-  "version": 1,
-  "version-name": "1.0.0"
+  "version": 2,
+  "version-name": "1.0.1"
 }
