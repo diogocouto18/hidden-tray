@@ -27,7 +27,10 @@ export default class HiddenTrayExtension extends Extension {
         Main.panel.addToStatusArea(this.uuid, this._arrow, 0, 'right');
         // The panel can destroy the arrow before disable() runs (e.g. at logout);
         // stop reacting to panel changes from then on.
-        this._arrow.connectObject('destroy', () => this._teardown(), this);
+        this._arrow.connectObject('destroy', () => {
+            this._arrow = null; // already destroyed: disable() must not destroy it again
+            this._teardown();
+        }, this);
 
         this._tracker = new TrayTracker({
             settings: this._settings,
@@ -107,6 +110,8 @@ export default class HiddenTrayExtension extends Extension {
     // fires while blocked (pointer on the panel or a menu open), it restarts.
     _scheduleAutoCollapse() {
         this._cancelAutoCollapse();
+        if (!this._tracker)
+            return; // torn down (panel destroyed or disabling)
         const state = this._countdownState();
         if (!shouldCountDown({...state, pointerInPanel: false, menuOpen: false}))
             return;

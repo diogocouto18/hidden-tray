@@ -27,18 +27,20 @@ class HiddenTrayArrowButton extends PanelMenu.Button {
         this.add_child(this._icon);
 
         // One ClickGesture for any button, dispatched on get_button(), as GNOME
-        // Shell 50 itself does (e.g. ibusCandidatePopup). Three gestures with
-        // different required_button on the same actor blocked every click.
+        // Shell 50 itself does (e.g. ibusCandidatePopup).
         const handlers = new Map([
             [Clutter.BUTTON_PRIMARY, onPrimary],
             [Clutter.BUTTON_MIDDLE, onMiddle],
             [Clutter.BUTTON_SECONDARY, onSecondary ? () => {
-                onSecondary(this.menu);
+                // Rebuild only when opening; closing just closes.
+                if (!this.menu.isOpen)
+                    onSecondary(this.menu);
                 this.menu.toggle();
             } : null],
         ]);
         const gesture = new Clutter.ClickGesture();
-        gesture.connect('recognize', g => handlers.get(g.get_button())?.());
+        // A touch tap reports no mouse button (0): treat it as a primary click.
+        gesture.connect('recognize', g => handlers.get(g.get_button() || Clutter.BUTTON_PRIMARY)?.());
         this.add_action(gesture);
 
         this.setState({expanded: false, dimmed: false});
