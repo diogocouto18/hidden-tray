@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.hidden-tray" path="/org/gnome/shell/extensions/hidden-tray/">
+    <key name="zones" type="a{ss}">
+      <default>{}</default>
+      <summary>Zone per tray icon identity key</summary>
+      <description>Maps keys like "sni:NetBird" to "visible", "collapsible" or "always-hidden".</description>
+    </key>
+    <key name="known-items" type="s">
+      <default>'[]'</default>
+      <summary>Tray icons seen by the shell (JSON)</summary>
+      <description>Written by the extension so the preferences window can list icons, including ones not running.</description>
+    </key>
+    <key name="new-item-zone" type="s">
+      <default>'visible'</default>
+      <summary>Zone for icons seen for the first time</summary>
+    </key>
+    <key name="auto-collapse-seconds" type="i">
+      <default>0</default>
+      <summary>Collapse automatically after this many seconds (0 = off)</summary>
+    </key>
+    <key name="toggle-shortcut" type="as">
+      <default>[]</default>
+      <summary>Shortcut to collapse or expand</summary>
+    </key>
+    <key name="reveal-shortcut" type="as">
+      <default>[]</default>
+      <summary>Shortcut to reveal always-hidden icons</summary>
+    </key>
+  </schema>
+</schemalist>
