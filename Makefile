@@ -12,9 +12,8 @@ lint:
 schemas:
 	glib-compile-schemas extension/schemas
 
-pack: schemas
-	mkdir -p dist
-	gnome-extensions pack extension --extra-source=lib --force -o dist
+pack:
+	./scripts/pack.sh
 
 install: pack
 	gnome-extensions install --force $(ZIP)
