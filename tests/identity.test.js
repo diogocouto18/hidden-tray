@@ -41,13 +41,27 @@ test('same Id from different processes is disambiguated by exe', () => {
     assert.equal(keys.get('e'), 'sni:chrome_status_icon_1#easyeffects');
 });
 
-test('clash with unknown exe falls back to pid suffix', () => {
+test('clash member with unknown exe stays unidentified (no session-specific pid keys)', () => {
     const keys = resolveKeys([
         {uid: 'x', kind: 'sni', id: 'X', pid: 7},
         {uid: 'y', kind: 'sni', id: 'X', pid: 8, exe: 'other'},
     ]);
-    assert.equal(keys.get('x'), 'sni:X#pid7');
+    assert.equal(keys.get('x'), null);
     assert.equal(keys.get('y'), 'sni:X#other');
+});
+
+test('same Id while a pid is still unknown: the whole group stays unidentified', () => {
+    const keys = resolveKeys([
+        {uid: 'a', kind: 'sni', id: 'X', pid: 1, exe: 'slack'},
+        {uid: 'b', kind: 'sni', id: 'X'},
+    ]);
+    assert.equal(keys.get('a'), null);
+    assert.equal(keys.get('b'), null);
+});
+
+test('a single item never needs its pid', () => {
+    const keys = resolveKeys([{uid: 'a', kind: 'sni', id: 'NetBird'}]);
+    assert.equal(keys.get('a'), 'sni:NetBird');
 });
 
 test('unready item without Id resolves to null', () => {

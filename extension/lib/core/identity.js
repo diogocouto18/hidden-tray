@@ -27,13 +27,22 @@ export function resolveKeys(items) {
         result.set(item.uid, null);
 
     for (const [key, members] of groups) {
-        const pids = new Set(members.map(m => m.pid).filter(p => p !== undefined));
-        const clash = pids.size > 1;
+        if (members.length === 1) {
+            result.set(members[0].uid, key);
+            continue;
+        }
+        // Several items share the Id. Until every pid is known we can't tell a
+        // double registration (same process) from a clash, so keep them unidentified
+        // (never hidden). In a clash, an item whose exe is unknown also stays
+        // unidentified: a pid-based key would change every session.
+        if (members.some(m => m.pid === undefined))
+            continue;
+        const clash = new Set(members.map(m => m.pid)).size > 1;
         for (const m of members) {
             if (!clash)
                 result.set(m.uid, key);
-            else
-                result.set(m.uid, m.exe ? `${key}#${m.exe}` : `${key}#pid${m.pid}`);
+            else if (m.exe)
+                result.set(m.uid, `${key}#${m.exe}`);
         }
     }
     return result;
