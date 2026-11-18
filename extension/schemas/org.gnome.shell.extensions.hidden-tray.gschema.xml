@@ -20,11 +20,11 @@
       <summary>Collapse automatically after this many seconds (0 = off)</summary>
     </key>
     <key name="toggle-shortcut" type="as">
-      <default>[]</default>
+      <default><![CDATA[['<Super><Alt>h']]]></default>
       <summary>Shortcut to collapse or expand</summary>
     </key>
     <key name="reveal-shortcut" type="as">
-      <default>[]</default>
+      <default><![CDATA[['<Super><Alt><Shift>h']]]></default>
       <summary>Shortcut to reveal always-hidden icons</summary>
     </key>
   </schema>

@@ -42,3 +42,18 @@ export function resolveKeys(items) {
 export function displayName(item) {
     return item.title || item.id || item.wmClass || 'Unknown';
 }
+
+// Map key -> label shown in menus/prefs. Names shared by several items get the
+// key detail (without the "sni:"/"xembed:" prefix) appended, e.g.
+// "update-notifier (livepatch)".
+export function uniqueLabels(items) {
+    const counts = new Map();
+    for (const {name} of items)
+        counts.set(name, (counts.get(name) ?? 0) + 1);
+    const labels = new Map();
+    for (const {key, name} of items) {
+        const detail = key.slice(key.indexOf(':') + 1);
+        labels.set(key, counts.get(name) > 1 ? `${name} (${detail})` : name);
+    }
+    return labels;
+}
