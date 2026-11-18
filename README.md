@@ -79,7 +79,7 @@ make lint      # ESLint
 make install   # build the zip and install it for your user
 ```
 
-Releases: bump `version-name` in `extension/metadata.json`, merge, then push a matching tag (`git tag v1.0.1 && git push origin v1.0.1`). The release workflow runs lint and tests, checks the tag against `version-name`, builds the zip with `scripts/pack.sh` and attaches it to a GitHub release.
+Releases: bump `version-name` in `extension/metadata.json` and add a `## X.Y.Z — date` section to [CHANGELOG.md](CHANGELOG.md), merge, then push a matching tag (`git tag v1.0.1 && git push origin v1.0.1`). The release workflow runs lint and tests, checks the tag against `version-name`, uses the CHANGELOG section (plus install instructions) as release notes — it fails if the section is missing — builds the zip with `scripts/pack.sh` and attaches it to a GitHub release.
 
 Shell code can't be unit-tested outside GNOME Shell; `docs/manual-test-checklist.md` lists the manual checks.
 

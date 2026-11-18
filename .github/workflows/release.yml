@@ -27,6 +27,9 @@ jobs:
             exit 1
           fi
 
+      - name: Release notes from CHANGELOG.md
+        run: node scripts/releaseNotes.js "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md"
+
       - name: Build extension zip
         id: pack
         run: echo "zip=$(./scripts/pack.sh)" >> "$GITHUB_OUTPUT"
@@ -36,5 +39,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" "${{ steps.pack.outputs.zip }}" \
-            --title "Hidden Tray $GITHUB_REF_NAME" \
-            --generate-notes
+            --title "Hidden Tray ${GITHUB_REF_NAME#v}" \
+            --notes-file "$RUNNER_TEMP/notes.md"
