@@ -2,10 +2,7 @@
 
 **Hidden Bar for GNOME.** Collapse the tray icons you don't need all the time behind an arrow in the top bar, and bring them back with one click.
 
-```
-Collapsed:  ‹                                   🔊 🔋 ⏻   17:42
-Expanded:   ›  NetBird  WorkDrive  Solaar       🔊 🔋 ⏻   17:42
-```
+![Hidden Tray collapsing and expanding tray icons in the GNOME top bar](docs/demo.gif)
 
 GNOME is the only major Linux desktop without this built in (KDE and XFCE have it). Hidden Tray adds it on top of your existing tray support — it does **not** replace Ubuntu's AppIndicator extension.
 
